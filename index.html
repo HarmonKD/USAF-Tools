@@ -3,18 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAF Lakenheath Meeting Cost Calculator (2025 Est.)</title>
+    <title>Hourly Cost Calculator (Multi-Location Est.)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom styles if needed, though Tailwind should cover most */
         body {
-            font-family: 'Inter', sans-serif; /* Using Inter font as preferred */
+            font-family: 'Inter', sans-serif;
         }
-        /* Style for invalid input fields */
         .invalid-input {
             border-color: red;
         }
-        /* Ensure number inputs hide spinners */
         input[type=number]::-webkit-inner-spin-button,
         input[type=number]::-webkit-outer-spin-button {
           -webkit-appearance: none;
@@ -23,16 +20,26 @@
         input[type=number] {
           -moz-appearance: textfield; /* Firefox */
         }
+        /* Style for the location selector */
+        #location-selector-container label {
+            margin-right: 0.5rem;
+        }
     </style>
 </head>
 <body class="bg-gray-100 p-4 md:p-8">
     <div class="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow-md">
 
-        <h1 class="text-2xl font-bold text-center mb-4 text-gray-800">Meeting Cost Calculator</h1>
-        <p class="text-sm text-center text-gray-500 mb-6">RAF Lakenheath - Estimated 2025 Rates</p>
+        <h1 class="text-2xl font-bold text-center mb-4 text-gray-800">Hourly Cost Calculator</h1>
+        <p class="text-sm text-center text-gray-500 mb-4">Estimated 2025 Rates</p>
+
+        <div id="location-selector-container" class="mb-6 text-center">
+            <label for="location-select" class="block text-sm font-medium text-gray-700 mb-1">Select Location:</label>
+            <select id="location-select" name="location" class="p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            </select>
+        </div>
 
         <div id="total-hourly-cost-display" class="bg-blue-600 text-white p-4 rounded-md text-center mb-6 shadow">
-            <span class="text-xl md:text-2xl font-bold">Total Hourly Cost: $0.00</span>
+            <span class="text-xl md:text-2xl font-bold">Total Overall Cost: $0.00</span>
         </div>
 
         <div class="overflow-x-auto">
@@ -49,7 +56,7 @@
                     </tr>
                 </thead>
                 <tbody id="attendee-table-body" class="bg-white divide-y divide-gray-200">
-                    </tbody>
+                </tbody>
             </table>
         </div>
 
@@ -62,14 +69,14 @@
         <div class="mt-8 text-sm text-gray-600 border-t pt-4">
             <p><strong>Notes:</strong></p>
             <ul class="list-disc list-inside ml-4">
-                <li>Pay and allowance data are estimates for 2025 based on projected increases and approximate OCONUS rates for RAF Lakenheath.</li>
+                <li>Pay and allowance data are estimates for 2025 based on projected increases and *approximate* OCONUS rates for the selected location.</li>
                 <li>Basic Pay reflects a 14.5% increase for E-1 to E-4 and 4.5% for E-5+ and Officers over estimated 2024 rates.</li>
-                <li>BAH ($1,800/mo) is included only for E-1 to E-4 as specified, though OHA is typical OCONUS.</li>
-                <li>OHA (Rent & Utilities) and COLA are approximations based on rank bands and dependency status (3 dependents for E-5+/O-3+; 0 dependents for O-1/O-2; E1-E4 assumed dorm residents).</li>
+                <li>BAH ($1,800/mo) is included only for E-1 to E-4 as specified, though OHA is typical OCONUS. This is a placeholder and may not apply accurately OCONUS.</li>
+                <li>OHA (Rent & Utilities) and COLA are approximations based on rank bands, dependency status assumptions (3 dependents for E-5+/O-3+; 0 dependents for O-1/O-2; E1-E4 assumed dorm residents), and the selected location. **These are not official rates.**</li>
                 <li>Hourly Cost = (Monthly Basic Pay + BAH + OHA Rent + OHA Utilities + COLA) / 150.67 hours (based on 1808 annual work hours).</li>
                 <li>For precise, official rates, please consult the DoD's
                     <a href="https://www.travel.dod.mil/Allowances/Overseas-Housing-Allowance/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Overseas Housing Allowance (OHA) Calculator</a> and
-                    <a href="https://www.travel.dod.mil/Allowances/Overseas-Cost-of-Living-Allowance/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Cost of Living Allowance (COLA) Calculator</a>.
+                    <a href="https://www.travel.dod.mil/Allowances/Overseas-Cost-of-Living-Allowance/" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Cost of Living Allowance (COLA) Calculator</a> using the specific location code and your dependency status.
                 </li>
             </ul>
         </div>
@@ -82,120 +89,92 @@
         const yearsOfService = Array.from({ length: 30 }, (_, i) => i + 1);
         const HOURLY_DIVISOR = 150.67; // (1808 hours / 12 months)
 
-        // Estimated 2025 Pay and Allowance Data (Approximations)
-        // Structure: payData[rank][years] = { basicPay, bah, ohaRent, ohaUtil, cola, hourlyCost }
-        const payData = {};
+        // --- Location Data (Sample Approximations) ---
+        // Structure: locationData[locationId] = { name: "Display Name", allowances: { rankBand: { ohaRent, ohaUtil, cola } } }
+        // Rank Bands: 'E1-E4', 'E5-E7', 'E8-E9', 'O1-O2 O3-O10'
+        const locationData = {
+            "raf_lakenheath": {
+                name: "RAF Lakenheath, UK",
+                allowances: {
+                    'E1-E4': { ohaRent: 0, ohaUtil: 0, cola: 325 },
+                    'E5-E7': { ohaRent: 2100, ohaUtil: 425, cola: 650 },
+                    'E8-E9': { ohaRent: 2300, ohaUtil: 475, cola: 750 },
+                    'O1-O2': { ohaRent: 1900, ohaUtil: 375, cola: 375 },
+                    'O3-O10': { ohaRent: 2850, ohaUtil: 525, cola: 850 }
+                }
+            },
+            "ramstein_ab": {
+                name: "Ramstein AB, Germany",
+                allowances: {
+                    'E1-E4': { ohaRent: 0, ohaUtil: 0, cola: 350 },
+                    'E5-E7': { ohaRent: 2300, ohaUtil: 500, cola: 700 },
+                    'E8-E9': { ohaRent: 2500, ohaUtil: 550, cola: 800 },
+                    'O1-O2': { ohaRent: 2100, ohaUtil: 450, cola: 400 },
+                    'O3-O10': { ohaRent: 3000, ohaUtil: 600, cola: 900 }
+                }
+            },
+            "kadena_ab": {
+                name: "Kadena AB, Japan",
+                allowances: {
+                    'E1-E4': { ohaRent: 0, ohaUtil: 0, cola: 400 },
+                    'E5-E7': { ohaRent: 2600, ohaUtil: 600, cola: 900 },
+                    'E8-E9': { ohaRent: 2800, ohaUtil: 650, cola: 1000 },
+                    'O1-O2': { ohaRent: 2400, ohaUtil: 550, cola: 500 },
+                    'O3-O10': { ohaRent: 3400, ohaUtil: 700, cola: 1100 }
+                }
+            }
+        };
 
-        // Function to generate pay data - simplified for brevity
-        // In a real scenario, this would involve fetching or calculating based on detailed 2024 tables + 2025 rules
-        function generatePayData() {
-            // --- Base Pay Estimations (2024 Base + 2025 Increase) ---
-            // These are illustrative estimates. A full accurate table is complex.
+        // --- Base Pay Data (Only Basic Pay) ---
+        // Structure: basePayData[rank][years] = basicPay
+        const basePayData = {};
+
+        function generateBasePayData() {
             const basePay2025 = {
-                // E1-E4: +14.5%
-                "E-1": { 1: 2288.40, 2: 2288.40, 4: 2288.40, 6: 2288.40, 8: 2288.40, 10: 2288.40, 12: 2288.40, 14: 2288.40, 16: 2288.40, 18: 2288.40, 20: 2288.40, 22: 2288.40, 24: 2288.40, 26: 2288.40, 28: 2288.40, 30: 2288.40 }, // Flat rate assumed after <2
-                "E-2": { 1: 2563.80, 2: 2563.80, 4: 2563.80, 6: 2563.80, 8: 2563.80, 10: 2563.80, 12: 2563.80, 14: 2563.80, 16: 2563.80, 18: 2563.80, 20: 2563.80, 22: 2563.80, 24: 2563.80, 26: 2563.80, 28: 2563.80, 30: 2563.80 }, // Flat rate assumed after <2
-                "E-3": { 1: 2696.10, 2: 2864.10, 3: 3038.70, 4: 3038.70, 6: 3038.70, 8: 3038.70, 10: 3038.70, 12: 3038.70, 14: 3038.70, 16: 3038.70, 18: 3038.70, 20: 3038.70, 22: 3038.70, 24: 3038.70, 26: 3038.70, 28: 3038.70, 30: 3038.70 }, // Flat rate assumed after 3
-                "E-4": { 1: 2980.20, 2: 3160.80, 3: 3333.30, 4: 3480.90, 6: 3630.60, 8: 3630.60, 10: 3630.60, 12: 3630.60, 14: 3630.60, 16: 3630.60, 18: 3630.60, 20: 3630.60, 22: 3630.60, 24: 3630.60, 26: 3630.60, 28: 3630.60, 30: 3630.60 }, // Flat rate assumed after 6 (using provided E4/6 example base)
-                // E5+ / O1+: +4.5%
-                "E-5": { 1: 3234.00, 2: 3420.90, 3: 3576.00, 4: 3731.10, 6: 3984.30, 8: 4326.30, 10: 4509.90, 12: 4708.80, 14: 4818.60, 16: 4926.30, 18: 5034.00, 20: 5034.00, 22: 5034.00, 24: 5034.00, 26: 5034.00, 28: 5034.00, 30: 5034.00 }, // Using E5/6 example base, flat after 18
-                "E-6": { 1: 3529.80, 2: 3849.30, 3: 4005.00, 4: 4158.60, 6: 4488.30, 8: 4873.80, 10: 5059.50, 12: 5348.40, 14: 5511.00, 16: 5680.50, 18: 5844.30, 20: 5944.20, 22: 5944.20, 24: 5944.20, 26: 5944.20, 28: 5944.20, 30: 5944.20 }, // Flat after 20
-                "E-7": { 1: 3000.00, 2: 4296.60, 3: 4497.60, 4: 4698.60, 6: 4926.30, 8: 5364.90, 10: 5556.00, 12: 5844.30, 14: 6072.00, 16: 6301.80, 18: 6528.60, 20: 6762.00, 22: 7000.80, 24: 7242.30, 26: 7483.80, 28: 7483.80, 30: 7483.80 }, // Using E7/10 example base, flat after 26
-                "E-8": { 1: 5000.00, 2: 5000.00, 3: 5000.00, 4: 5000.00, 6: 5000.00, 8: 5944.20, 10: 6174.00, 12: 6471.00, 14: 6762.00, 16: 7000.80, 18: 7242.30, 20: 7483.80, 22: 7799.10, 24: 8043.30, 26: 8361.60, 28: 8361.60, 30: 8361.60 }, // Flat after 26
-                "E-9": { 1: 6000.00, 2: 6000.00, 3: 6000.00, 4: 6000.00, 6: 6000.00, 8: 6000.00, 10: 7000.80, 12: 7242.30, 14: 7483.80, 16: 7799.10, 18: 8043.30, 20: 8361.60, 22: 8613.90, 24: 8943.60, 26: 9278.70, 28: 9620.70, 30: 9968.10 }, // Using E9/30 example base
-                "O-1": { 1: 4176.90, 2: 4336.20, 3: 5211.30, 4: 5211.30, 6: 5211.30, 8: 5211.30, 10: 5211.30, 12: 5211.30, 14: 5211.30, 16: 5211.30, 18: 5211.30, 20: 5211.30, 22: 5211.30, 24: 5211.30, 26: 5211.30, 28: 5211.30, 30: 5211.30 }, // Using O1/1 example base, flat after 3
-                "O-2": { 1: 4818.60, 2: 5499.90, 3: 6174.00, 4: 6372.90, 6: 6372.90, 8: 6372.90, 10: 6372.90, 12: 6372.90, 14: 6372.90, 16: 6372.90, 18: 6372.90, 20: 6372.90, 22: 6372.90, 24: 6372.90, 26: 6372.90, 28: 6372.90, 30: 6372.90 }, // Flat after 4
-                "O-3": { 1: 5424.60, 2: 6072.00, 3: 6597.90, 4: 7173.90, 6: 7521.00, 8: 7870.20, 10: 8218.80, 12: 8566.80, 14: 8805.60, 16: 8805.60, 18: 8805.60, 20: 8805.60, 22: 8805.60, 24: 8805.60, 26: 8805.60, 28: 8805.60, 30: 8805.60 }, // Using O3/6 example base, flat after 14
-                "O-4": { 1: 6072.00, 2: 6835.50, 3: 7411.50, 4: 7608.30, 6: 8145.00, 8: 8670.90, 10: 9196.80, 12: 9620.70, 14: 9968.10, 16: 10317.00, 18: 10534.80, 20: 10534.80, 22: 10534.80, 24: 10534.80, 26: 10534.80, 28: 10534.80, 30: 10534.80 }, // Flat after 18
-                "O-5": { 1: 7074.30, 2: 7870.20, 3: 8435.10, 4: 8613.90, 6: 9017.40, 8: 9441.30, 10: 9968.10, 12: 10494.00, 14: 10917.90, 16: 11443.80, 18: 11867.70, 20: 12216.30, 22: 12434.10, 24: 12434.10, 26: 12434.10, 28: 12434.10, 30: 12434.10 }, // Flat after 22
-                "O-6": { 1: 8472.30, 2: 9350.10, 3: 9968.10, 4: 9968.10, 6: 10317.00, 8: 10663.80, 10: 11087.70, 12: 11337.30, 14: 11867.70, 16: 12434.10, 18: 13074.00, 20: 13599.90, 22: 13948.50, 24: 14372.40, 26: 14796.30, 28: 15220.20, 30: 15644.10 }, // Using O6/20 example base
-                "O-7": { 1: 10000.00, 2: 11087.70, 3: 11511.60, 4: 11761.20, 6: 12010.80, 8: 12260.40, 10: 12786.30, 12: 13599.90, 14: 14166.30, 16: 14796.30, 18: 15499.80, 20: 16203.30, 22: 16627.20, 24: 17051.10, 26: 17475.00, 28: 17475.00, 30: 17475.00 }, // Flat after 26
+                "E-1": { 1: 2288.40 }, "E-2": { 1: 2563.80 }, "E-3": { 1: 2696.10, 2: 2864.10, 3: 3038.70 }, "E-4": { 1: 2980.20, 2: 3160.80, 3: 3333.30, 4: 3480.90, 6: 3630.60 },
+                "E-5": { 1: 3234.00, 2: 3420.90, 3: 3576.00, 4: 3731.10, 6: 3984.30, 8: 4326.30, 10: 4509.90, 12: 4708.80, 14: 4818.60, 16: 4926.30, 18: 5034.00 },
+                "E-6": { 1: 3529.80, 2: 3849.30, 3: 4005.00, 4: 4158.60, 6: 4488.30, 8: 4873.80, 10: 5059.50, 12: 5348.40, 14: 5511.00, 16: 5680.50, 18: 5844.30, 20: 5944.20 },
+                "E-7": { 1: 3000.00, 2: 4296.60, 3: 4497.60, 4: 4698.60, 6: 4926.30, 8: 5364.90, 10: 5556.00, 12: 5844.30, 14: 6072.00, 16: 6301.80, 18: 6528.60, 20: 6762.00, 22: 7000.80, 24: 7242.30, 26: 7483.80 },
+                "E-8": { 1: 5000.00, 8: 5944.20, 10: 6174.00, 12: 6471.00, 14: 6762.00, 16: 7000.80, 18: 7242.30, 20: 7483.80, 22: 7799.10, 24: 8043.30, 26: 8361.60 },
+                "E-9": { 1: 6000.00, 10: 7000.80, 12: 7242.30, 14: 7483.80, 16: 7799.10, 18: 8043.30, 20: 8361.60, 22: 8613.90, 24: 8943.60, 26: 9278.70, 28: 9620.70, 30: 9968.10 },
+                "O-1": { 1: 4176.90, 2: 4336.20, 3: 5211.30 }, "O-2": { 1: 4818.60, 2: 5499.90, 3: 6174.00, 4: 6372.90 },
+                "O-3": { 1: 5424.60, 2: 6072.00, 3: 6597.90, 4: 7173.90, 6: 7521.00, 8: 7870.20, 10: 8218.80, 12: 8566.80, 14: 8805.60 },
+                "O-4": { 1: 6072.00, 2: 6835.50, 3: 7411.50, 4: 7608.30, 6: 8145.00, 8: 8670.90, 10: 9196.80, 12: 9620.70, 14: 9968.10, 16: 10317.00, 18: 10534.80 },
+                "O-5": { 1: 7074.30, 2: 7870.20, 3: 8435.10, 4: 8613.90, 6: 9017.40, 8: 9441.30, 10: 9968.10, 12: 10494.00, 14: 10917.90, 16: 11443.80, 18: 11867.70, 20: 12216.30, 22: 12434.10 },
+                "O-6": { 1: 8472.30, 2: 9350.10, 3: 9968.10, 6: 10317.00, 8: 10663.80, 10: 11087.70, 12: 11337.30, 14: 11867.70, 16: 12434.10, 18: 13074.00, 20: 13599.90, 22: 13948.50, 24: 14372.40, 26: 14796.30, 28: 15220.20, 30: 15644.10 },
+                "O-7": { 1: 10000.00, 2: 11087.70, 3: 11511.60, 4: 11761.20, 6: 12010.80, 8: 12260.40, 10: 12786.30, 12: 13599.90, 14: 14166.30, 16: 14796.30, 18: 15499.80, 20: 16203.30, 22: 16627.20, 24: 17051.10, 26: 17475.00 },
                 "O-8": { 1: 12000.00, 2: 12509.70, 3: 13074.00, 4: 13392.30, 6: 13740.90, 8: 14372.40, 10: 14928.30, 12: 15644.10, 14: 16203.30, 16: 16834.80, 18: 17475.00, 20: 18190.80, 22: 18614.70, 24: 19038.60, 26: 19462.50, 28: 19886.40, 30: 20310.30 },
                 "O-9": { 1: 14000.00, 2: 17051.10, 3: 17369.40, 4: 17548.20, 6: 17866.50, 8: 18190.80, 10: 18509.10, 12: 18827.40, 14: 19145.70, 16: 19671.60, 18: 20310.30, 20: 20949.00, 22: 21372.90, 24: 21796.80, 26: 22220.70, 28: 22644.60, 30: 23068.50 },
-                "O-10": { 1: 16000.00, 2: 16000.00, 3: 16000.00, 4: 16000.00, 6: 16000.00, 8: 16000.00, 10: 16000.00, 12: 16000.00, 14: 16000.00, 16: 19671.60, 18: 20310.30, 20: 20949.00, 22: 21796.80, 24: 22644.60, 26: 23492.40, 28: 24340.20, 30: 24340.20 } // Using O10/30 example base, flat after 28
+                "O-10": { 1: 16000.00, 16: 19671.60, 18: 20310.30, 20: 20949.00, 22: 21796.80, 24: 22644.60, 26: 23492.40, 28: 24340.20 }
             };
 
-            // --- Allowances (Approximations based on prompt ranges) ---
-            function getAllowances(rank, years) {
-                const rankType = rank.startsWith('E') ? 'enlisted' : 'officer';
-                const rankNum = parseInt(rank.substring(2));
-
-                let bah = 0;
-                let ohaRent = 0;
-                let ohaUtil = 0;
-                let cola = 0;
-
-                // BAH (Only E1-E4 as specified)
-                if (rankType === 'enlisted' && rankNum >= 1 && rankNum <= 4) {
-                    bah = 1800;
-                }
-
-                // OHA Rent & Utilities / COLA (Approximated based on rank bands)
-                if (rankType === 'enlisted') {
-                    if (rankNum <= 4) { // E1-E4 (Dorm residents assumed)
-                        ohaRent = 0;
-                        ohaUtil = 0;
-                        cola = 325; // Midpoint of $300-$350
-                    } else if (rankNum <= 7) { // E5-E7 (Approx. scale $2000-$2200 rent, $400-$450 util, $600-$700 COLA)
-                        ohaRent = 2000 + (rankNum - 5) * 100; // 2000, 2100, 2200
-                        ohaUtil = 400 + (rankNum - 5) * 25;  // 400, 425, 450
-                        cola = 600 + (rankNum - 5) * 50;   // 600, 650, 700
-                    } else { // E8-E9 (Approx. scale $2200-$2400 rent, $450-$500 util, $700-$800 COLA)
-                        ohaRent = 2200 + (rankNum - 7) * 100; // 2200, 2300, 2400 (E7 overlaps, use higher E8 value)
-                        ohaUtil = 450 + (rankNum - 7) * 25;  // 450, 475, 500
-                        cola = 700 + (rankNum - 7) * 50;   // 700, 750, 800
-                    }
-                } else { // Officer
-                    if (rankNum <= 2) { // O1-O2 (No dependents assumed)
-                        ohaRent = 1800 + (rankNum - 1) * 200; // 1800, 2000
-                        ohaUtil = 350 + (rankNum - 1) * 50;  // 350, 400
-                        cola = 350 + (rankNum - 1) * 50;   // 350, 400
-                    } else { // O3-O10 (3 dependents assumed)
-                        // Scale $2500-$3200 rent, $450-$600 util, $700-$1000 COLA over 8 ranks (O3-O10)
-                        const scaleFactor = (rankNum - 3) / 7; // 0 for O3, 1 for O10
-                        ohaRent = 2500 + Math.round(scaleFactor * 700); // 2500 to 3200
-                        ohaUtil = 450 + Math.round(scaleFactor * 150); // 450 to 600
-                        cola = 700 + Math.round(scaleFactor * 300);   // 700 to 1000
-                    }
-                }
-
-                return { bah, ohaRent, ohaUtil, cola };
-            }
-
-            // --- Combine and Calculate Hourly Rate ---
             ranks.forEach(rank => {
-                payData[rank] = {};
+                basePayData[rank] = {};
                 let lastPay = 0;
+                const rankPaySteps = basePay2025[rank] || {};
+                const sortedYears = Object.keys(rankPaySteps).map(Number).sort((a, b) => a - b);
+
                 for (let y = 1; y <= 30; y++) {
-                    // Find the correct base pay for the year (use last available if exact year not listed)
-                    let yearKey = y;
-                    while (yearKey > 0 && !basePay2025[rank][yearKey]) {
-                        yearKey--;
+                    let applicableYearStep = 0;
+                    for (const stepYear of sortedYears) {
+                        if (stepYear <= y) {
+                            applicableYearStep = stepYear;
+                        } else {
+                            break;
+                        }
                     }
-                    const basicPay = basePay2025[rank][yearKey] || lastPay; // Use last known pay if yearKey becomes 0
-                    lastPay = basicPay; // Update last pay
-
-                    const { bah, ohaRent, ohaUtil, cola } = getAllowances(rank, y);
-                    const totalMonthly = basicPay + bah + ohaRent + ohaUtil + cola;
-                    const hourlyCost = totalMonthly / HOURLY_DIVISOR;
-
-                    payData[rank][y] = {
-                        basicPay: basicPay,
-                        bah: bah,
-                        ohaRent: ohaRent,
-                        ohaUtil: ohaUtil,
-                        cola: cola,
-                        hourlyCost: parseFloat(hourlyCost.toFixed(2)) // Store as number
-                    };
+                    const currentPay = rankPaySteps[applicableYearStep] !== undefined ? rankPaySteps[applicableYearStep] : lastPay;
+                    basePayData[rank][y] = parseFloat(currentPay.toFixed(2));
+                    lastPay = currentPay;
                 }
             });
-            // console.log("Generated Pay Data:", payData); // For debugging
         }
 
         // --- DOM Elements ---
         const tableBody = document.getElementById('attendee-table-body');
         const addRowBtn = document.getElementById('add-row-btn');
-        const totalHourlyCostDisplay = document.getElementById('total-hourly-cost-display').querySelector('span');
+        const totalOverallCostDisplay = document.getElementById('total-hourly-cost-display').querySelector('span');
+        const locationSelect = document.getElementById('location-select');
 
         // --- Functions ---
 
@@ -205,16 +184,44 @@
             return `$${value.toFixed(2)}`;
         }
 
-        // Get pay data for a specific rank and year
-        function getHourlyCost(rank, years) {
-            if (!payData[rank] || !payData[rank][years]) {
-                console.warn(`Pay data not found for ${rank}, ${years} years. Defaulting to 0.`);
+        // Get Base Pay
+        function getBasePay(rank, years) {
+            if (!basePayData[rank] || basePayData[rank][years] === undefined) {
+                console.warn(`Base pay data not found for ${rank}, ${years} years. Defaulting to 0.`);
                 return 0;
             }
-            return payData[rank][years].hourlyCost;
+            return basePayData[rank][years];
         }
 
-        // Calculate costs for a single row
+        // Get Location-Specific Allowances
+        function getLocationAllowances(locationId, rank) {
+            const location = locationData[locationId];
+            if (!location) return { ohaRent: 0, ohaUtil: 0, cola: 0, bah: 0 };
+
+            const rankType = rank.startsWith('E') ? 'enlisted' : 'officer';
+            const rankNum = parseInt(rank.substring(2));
+            let rankBand = '';
+
+            if (rankType === 'enlisted') {
+                if (rankNum <= 4) rankBand = 'E1-E4';
+                else if (rankNum <= 7) rankBand = 'E5-E7';
+                else rankBand = 'E8-E9';
+            } else {
+                if (rankNum <= 2) rankBand = 'O1-O2';
+                else rankBand = 'O3-O10';
+            }
+
+            const allowances = location.allowances[rankBand] || { ohaRent: 0, ohaUtil: 0, cola: 0 };
+
+            let bah = 0;
+            if (rankBand === 'E1-E4') {
+                bah = 1800;
+            }
+
+            return { ...allowances, bah };
+        }
+
+        // Calculate costs for a single row based on current location
         function calculateRowCost(row) {
             const numberInput = row.querySelector('.attendee-number');
             const rankSelect = row.querySelector('.attendee-rank');
@@ -222,8 +229,8 @@
             const hoursInput = row.querySelector('.attendee-hours');
             const hourlyCostCell = row.querySelector('.hourly-cost');
             const totalCostCell = row.querySelector('.total-cost');
+            const selectedLocationId = locationSelect.value;
 
-            // Clear previous invalid styles
             numberInput.classList.remove('invalid-input');
             hoursInput.classList.remove('invalid-input');
 
@@ -233,6 +240,8 @@
             const hours = parseFloat(hoursInput.value);
 
             let isValid = true;
+            let basicPay = 0;
+            let allowances = { ohaRent: 0, ohaUtil: 0, cola: 0, bah: 0 };
             let hourlyCost = 0;
             let rowTotalCost = 0;
 
@@ -240,121 +249,94 @@
                 numberInput.classList.add('invalid-input');
                 isValid = false;
             }
-            if (isNaN(hours) || hours <= 0) {
-                 // Allow 0 hours, but mark as invalid if negative? Let's allow 0.
-                 if (hours < 0) {
-                    hoursInput.classList.add('invalid-input');
-                    isValid = false;
-                 } else if (hours === 0){
-                    // Valid, cost is 0
-                 } else {
-                    // NaN case
-                    hoursInput.classList.add('invalid-input');
-                    isValid = false;
-                 }
+            if (isNaN(hours) || hours < 0) {
+                hoursInput.classList.add('invalid-input');
+                isValid = false;
             }
-             if (!rank || isNaN(years)) {
-                // Should not happen with dropdowns, but check anyway
+            if (!rank || isNaN(years) || !selectedLocationId) {
                 isValid = false;
             }
 
             if (isValid && rank && years) {
-                hourlyCost = getHourlyCost(rank, years);
-                rowTotalCost = number * hourlyCost * hours;
-            } else {
-                 hourlyCost = 0; // Set to 0 if inputs are invalid
-                 rowTotalCost = 0;
+                basicPay = getBasePay(rank, years);
+                allowances = getLocationAllowances(selectedLocationId, rank);
+                const totalMonthly = basicPay + allowances.bah + allowances.ohaRent + allowances.ohaUtil + allowances.cola;
+                hourlyCost = totalMonthly / HOURLY_DIVISOR;
+                rowTotalCost = number * hourlyCost * (hours > 0 ? hours : 0);
             }
-
 
             hourlyCostCell.textContent = formatCurrency(hourlyCost);
             totalCostCell.textContent = formatCurrency(rowTotalCost);
 
-            // Store calculated values on the row for total calculation
             row.dataset.number = isValid && number > 0 ? number : 0;
             row.dataset.hourlyCost = isValid ? hourlyCost : 0;
 
-            updateTotalHourlyCost();
-            updateRemoveButtonVisibility(); // Update visibility based on row count
+            updateTotalOverallCost();
+            updateRemoveButtonVisibility();
         }
 
-        // Update the grand total hourly cost
-        function updateTotalHourlyCost() {
+        // Update the grand total overall cost
+        function updateTotalOverallCost() {
             let total = 0;
             const rows = tableBody.querySelectorAll('tr');
             rows.forEach(row => {
-                const number = parseFloat(row.dataset.number || 0);
-                const hourlyCost = parseFloat(row.dataset.hourlyCost || 0);
-                if (!isNaN(number) && !isNaN(hourlyCost)) {
-                    total += number * hourlyCost;
+                const totalCostCell = row.querySelector('.total-cost');
+                const totalCostText = totalCostCell.textContent.replace('$', '');
+                const rowTotalCost = parseFloat(totalCostText) || 0;
+                if (!isNaN(rowTotalCost)) {
+                    total += rowTotalCost;
                 }
             });
-            totalHourlyCostDisplay.textContent = `Total Hourly Cost: ${formatCurrency(total)}`;
+            totalOverallCostDisplay.textContent = `Total Overall Cost: ${formatCurrency(total)}`;
+        }
+
+        // Recalculate all existing rows when location changes
+        function recalculateAllRows() {
+            const rows = tableBody.querySelectorAll('tr');
+            rows.forEach(row => calculateRowCost(row));
         }
 
         // Create a new table row
         function createRow() {
             const row = document.createElement('tr');
-            row.classList.add('hover:bg-gray-50'); // Add hover effect
+            row.classList.add('hover:bg-gray-50');
 
-            // Number Input
             const numberCell = document.createElement('td');
             numberCell.classList.add('px-4', 'py-2', 'whitespace-nowrap');
             const numberInput = document.createElement('input');
-            numberInput.type = 'number';
-            numberInput.min = "1";
-            numberInput.value = "1";
+            numberInput.type = 'number'; numberInput.min = "1"; numberInput.value = "1";
             numberInput.classList.add('attendee-number', 'w-16', 'p-1', 'border', 'border-gray-300', 'rounded', 'text-center');
             numberCell.appendChild(numberInput);
 
-            // Rank Dropdown
             const rankCell = document.createElement('td');
             rankCell.classList.add('px-4', 'py-2', 'whitespace-nowrap');
             const rankSelect = document.createElement('select');
             rankSelect.classList.add('attendee-rank', 'w-24', 'p-1', 'border', 'border-gray-300', 'rounded');
-            ranks.forEach(rank => {
-                const option = document.createElement('option');
-                option.value = rank;
-                option.textContent = rank;
-                rankSelect.appendChild(option);
-            });
+            ranks.forEach(rank => { const option = document.createElement('option'); option.value = rank; option.textContent = rank; rankSelect.appendChild(option); });
             rankCell.appendChild(rankSelect);
 
-            // Years of Service Dropdown
             const yearsCell = document.createElement('td');
             yearsCell.classList.add('px-4', 'py-2', 'whitespace-nowrap');
             const yearsSelect = document.createElement('select');
             yearsSelect.classList.add('attendee-years', 'w-20', 'p-1', 'border', 'border-gray-300', 'rounded');
-            yearsOfService.forEach(year => {
-                const option = document.createElement('option');
-                option.value = year;
-                option.textContent = year;
-                yearsSelect.appendChild(option);
-            });
+            yearsOfService.forEach(year => { const option = document.createElement('option'); option.value = year; option.textContent = year; yearsSelect.appendChild(option); });
             yearsCell.appendChild(yearsSelect);
 
-            // Hours Input
             const hoursCell = document.createElement('td');
             hoursCell.classList.add('px-4', 'py-2', 'whitespace-nowrap');
             const hoursInput = document.createElement('input');
-            hoursInput.type = 'number';
-            hoursInput.min = "0";
-            hoursInput.step = "0.1"; // Allow decimals
-            hoursInput.value = "1.0";
+            hoursInput.type = 'number'; hoursInput.min = "0"; hoursInput.step = "0.1"; hoursInput.value = "1.0";
             hoursInput.classList.add('attendee-hours', 'w-20', 'p-1', 'border', 'border-gray-300', 'rounded', 'text-center');
             hoursCell.appendChild(hoursInput);
 
-            // Hourly Cost Cell (Output)
             const hourlyCostCell = document.createElement('td');
             hourlyCostCell.classList.add('hourly-cost', 'px-4', 'py-2', 'whitespace-nowrap', 'text-sm', 'text-gray-900', 'text-right');
-            hourlyCostCell.textContent = formatCurrency(0); // Initial value
+            hourlyCostCell.textContent = formatCurrency(0);
 
-            // Total Cost Cell (Output)
             const totalCostCell = document.createElement('td');
             totalCostCell.classList.add('total-cost', 'px-4', 'py-2', 'whitespace-nowrap', 'text-sm', 'text-gray-900', 'text-right', 'font-medium');
-            totalCostCell.textContent = formatCurrency(0); // Initial value
+            totalCostCell.textContent = formatCurrency(0);
 
-            // Action Cell (Remove Button)
             const actionCell = document.createElement('td');
             actionCell.classList.add('px-4', 'py-2', 'whitespace-nowrap', 'text-center');
             const removeBtn = document.createElement('button');
@@ -362,34 +344,27 @@
             removeBtn.classList.add('remove-row-btn', 'bg-red-500', 'hover:bg-red-600', 'text-white', 'text-xs', 'font-bold', 'py-1', 'px-2', 'rounded', 'shadow', 'transition', 'duration-150', 'ease-in-out');
             actionCell.appendChild(removeBtn);
 
-            // Append cells to row
-            row.appendChild(numberCell);
-            row.appendChild(rankCell);
-            row.appendChild(yearsCell);
-            row.appendChild(hoursCell);
-            row.appendChild(hourlyCostCell);
-            row.appendChild(totalCostCell);
+            row.appendChild(numberCell); row.appendChild(rankCell); row.appendChild(yearsCell);
+            row.appendChild(hoursCell); row.appendChild(hourlyCostCell); row.appendChild(totalCostCell);
             row.appendChild(actionCell);
 
-            // Add event listeners for inputs in this new row
             [numberInput, rankSelect, yearsSelect, hoursInput].forEach(input => {
                 input.addEventListener('input', () => calculateRowCost(row));
-                input.addEventListener('change', () => calculateRowCost(row)); // Ensure change event also triggers
+                input.addEventListener('change', () => calculateRowCost(row));
             });
 
-             // Add listener for remove button
             removeBtn.addEventListener('click', () => {
-                if (tableBody.rows.length > 1) { // Only remove if more than one row exists
+                if (tableBody.rows.length > 1) {
                     row.remove();
-                    updateTotalHourlyCost();
-                    updateRemoveButtonVisibility(); // Check again after removal
+                    updateTotalOverallCost();
+                    updateRemoveButtonVisibility();
                 }
             });
 
             tableBody.appendChild(row);
-            calculateRowCost(row); // Calculate initial cost for the new row
-            updateRemoveButtonVisibility(); // Update visibility after adding
-            return row; // Return the created row element
+            calculateRowCost(row);
+            updateRemoveButtonVisibility();
+            return row;
         }
 
         // Show/hide remove buttons based on row count
@@ -404,13 +379,22 @@
             });
         }
 
+        // Populate the location dropdown
+        function populateLocationDropdown() {
+            Object.keys(locationData).forEach(locationId => {
+                const option = document.createElement('option');
+                option.value = locationId;
+                option.textContent = locationData[locationId].name;
+                locationSelect.appendChild(option);
+            });
+        }
 
         // --- Initialization ---
-        generatePayData(); // Populate the pay data object
-        createRow(); // Add the initial row on page load
-        addRowBtn.addEventListener('click', createRow); // Add listener for the main Add Row button
-
+        generateBasePayData();
+        populateLocationDropdown();
+        createRow();
+        addRowBtn.addEventListener('click', createRow);
+        locationSelect.addEventListener('change', recalculateAllRows);
     </script>
-
 </body>
 </html>
